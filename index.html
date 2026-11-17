@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sổ Chi Tiêu Sinh Hoạt Cá Nhân</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  </style>
+</head>
+<body class="text-slate-800 pb-16">
+
+  <!-- Header -->
+  <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+    <div class="max-w-5xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center font-bold text-lg shadow">₫</div>
+        <div>
+          <h1 class="font-bold text-base sm:text-lg leading-tight">Sổ Chi Tiêu Cá Nhân</h1>
+          <p class="text-xs text-slate-400">Quản lý tiền sinh hoạt hàng tháng</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-slate-300 hidden sm:inline">Tháng:</label>
+        <input type="month" id="monthPicker" class="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-400" />
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 pt-5 space-y-5">
+
+    <!-- Thanh công cụ sao lưu & cài ngân sách -->
+    <div class="flex flex-wrap items-center justify-between gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+      <div class="flex items-center gap-2 flex-wrap">
+        <button onclick="openBudgetModal()" class="text-xs sm:text-sm font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg transition">
+          🎯 Đặt ngân sách tháng
+        </button>
+        <button onclick="addRecurringBills()" class="text-xs sm:text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg transition">
+          ⚡ Nhập nhanh tiền cố định
+        </button>
+      </div>
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <button onclick="exportCSV()" class="text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg transition">📊 Xuất Excel</button>
+        <button onclick="exportJSON()" class="text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg transition">💾 Sao lưu</button>
+        <label class="text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg transition cursor-pointer">
+          📂 Khôi phục
+          <input type="file" accept=".json" onchange="importJSON(event)" class="hidden" />
+        </label>
+      </div>
+    </div>
+
+    <!-- 4 Thẻ Tổng Quan -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Ngân sách tháng này</p>
+        <p id="statBudget" class="text-lg sm:text-xl font-bold text-slate-900 mt-1">0đ</p>
+        <button onclick="openBudgetModal()" class="text-[11px] text-emerald-600 hover:underline mt-1">Chỉnh hạn mức →</button>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Tổng đã chi</p>
+        <p id="statSpent" class="text-lg sm:text-xl font-bold text-rose-600 mt-1">0đ</p>
+        <p id="statPercent" class="text-[11px] text-slate-400 mt-1">0% ngân sách</p>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Còn lại trong tháng</p>
+        <p id="statRemaining" class="text-lg sm:text-xl font-bold text-emerald-600 mt-1">0đ</p>
+        <p id="statDailyAllow" class="text-[11px] text-slate-400 mt-1">~0đ / ngày còn lại</p>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Đã tiêu hôm nay</p>
+        <p id="statToday" class="text-lg sm:text-xl font-bold text-amber-600 mt-1">0đ</p>
+        <p id="statCount" class="text-[11px] text-slate-400 mt-1">0 khoản chi trong tháng</p>
+      </div>
+    </div>
+
+    <!-- Form Nhập Khoản Chi Mới -->
+    <section class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+      <h2 class="font-bold text-sm sm:text-base text-slate-800 mb-3 flex items-center gap-2">
+        <span>➕ Ghi Khoản Chi Mới</span>
+      </h2>
+      <form id="expenseForm" onsubmit="addExpense(event)" class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+        <div class="sm:col-span-3">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Danh mục</label>
+          <select id="category" required class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:border-emerald-500">
+            <option value="Tiền ăn">🍚 Tiền ăn</option>
+            <option value="Tiền trọ">🏠 Tiền trọ</option>
+            <option value="Tiền điện">⚡ Tiền điện</option>
+            <option value="Nước sinh hoạt">🚿 Nước sinh hoạt</option>
+            <option value="Nước uống">💧 Nước uống</option>
+            <option value="Xăng xe">⛽ Xăng xe</option>
+            <option value="Áo quần">👕 Áo quần</option>
+            <option value="Mua linh tinh">🛍️ Mua linh tinh</option>
+          </select>
+        </div>
+
+        <div class="sm:col-span-3">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Số tiền (VNĐ)</label>
+          <input type="number" id="amount" required min="1000" step="500" placeholder="VD: 35000" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:border-emerald-500" />
+        </div>
+
+        <div class="sm:col-span-3">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Ghi chú (tùy chọn)</label>
+          <input type="text" id="note" placeholder="VD: Cơm trưa, đổ đầy bình..." class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500" />
+        </div>
+
+        <div class="sm:col-span-3 flex items-end gap-2">
+          <div class="flex-1">
+            <label class="block text-xs font-medium text-slate-600 mb-1">Ngày chi</label>
+            <input type="date" id="date" required class="w-full border border-slate-300 rounded-xl px-2.5 py-2 text-sm focus:outline-none focus:border-emerald-500" />
+          </div>
+          <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-sm shadow-sm transition whitespace-nowrap h-[38px]">
+            Lưu
+          </button>
+        </div>
+      </form>
+
+      <!-- Nút bấm điền nhanh số tiền phổ biến -->
+      <div class="mt-2.5 flex items-center gap-1.5 flex-wrap">
+        <span class="text-[11px] text-slate-400">Điền nhanh:</span>
+        <button type="button" onclick="quickAmount(15000)" class="text-[11px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-md text-slate-600">+15k</button>
+        <button type="button" onclick="quickAmount(25000)" class="text-[11px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-md text-slate-600">+25k</button>
+        <button type="button" onclick="quickAmount(35000)" class="text-[11px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-md text-slate-600">+35k</button>
+        <button type="button" onclick="quickAmount(50000)" class="text-[11px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-md text-slate-600">+50k</button>
+        <button type="button" onclick="quickAmount(100000)" class="text-[11px] bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-md text-slate-600">+100k</button>
+      </div>
+    </section>
+
+    <!-- Chia 2 cột: Phân bổ theo danh mục & Lịch sử chi tiêu -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      
+      <!-- Cột trái: Thống kê từng danh mục -->
+      <section class="lg:col-span-5 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm h-fit">
+        <h2 class="font-bold text-sm sm:text-base text-slate-800 mb-3">📊 Chi Theo Từng Mục</h2>
+        <div id="categoryBreakdown" class="space-y-3">
+          <!-- Render bằng JS -->
+        </div>
+      </section>
+
+      <!-- Cột phải: Danh sách chi tiết -->
+      <section class="lg:col-span-7 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 class="font-bold text-sm sm:text-base text-slate-800">🧾 Chi Tiết Các Khoản Đã Chi</h2>
+          <select id="filterCategory" onchange="renderAll()" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 focus:outline-none">
+            <option value="ALL">Tất cả danh mục</option>
+            <option value="Tiền ăn">🍚 Tiền ăn</option>
+            <option value="Tiền trọ">🏠 Tiền trọ</option>
+            <option value="Tiền điện">⚡ Tiền điện</option>
+            <option value="Nước sinh hoạt">🚿 Nước sinh hoạt</option>
+            <option value="Nước uống">💧 Nước uống</option>
+            <option value="Xăng xe">⛽ Xăng xe</option>
+            <option value="Áo quần">👕 Áo quần</option>
+            <option value="Mua linh tinh">🛍️ Mua linh tinh</option>
+          </select>
+        </div>
+
+        <div id="expenseList" class="divide-y divide-slate-100 max-h-[480px] overflow-y-auto pr-1">
+          <!-- Render bằng JS -->
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal Cài Đặt Ngân Sách Tháng -->
+  <div id="budgetModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl">
+      <h3 class="font-bold text-base text-slate-900">Đặt Ngân Sách Sinh Hoạt</h3>
+      <p class="text-xs text-slate-500 mt-1">Nhập tổng số tiền tối đa bạn dự định tiêu trong tháng <span id="modalMonthLabel" class="font-semibold text-slate-700"></span>.</p>
+      <input type="number" id="budgetInput" step="50000" placeholder="VD: 4000000" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-base font-bold mt-3 focus:outline-none focus:border-emerald-500" />
+      <div class="flex justify-end gap-2 mt-4">
+        <button onclick="closeBudgetModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">Hủy</button>
+        <button onclick="saveBudget()" class="px-4 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">Lưu hạn mức</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CATEGORIES = [
+      { name: 'Tiền ăn', icon: '🍚', color: 'bg-orange-500' },
+      { name: 'Tiền trọ', icon: '🏠', color: 'bg-indigo-500' },
+      { name: 'Tiền điện', icon: '⚡', color: 'bg-yellow-500' },
+      { name: 'Nước sinh hoạt', icon: '🚿', color: 'bg-cyan-500' },
+      { name: 'Nước uống', icon: '💧', color: 'bg-sky-500' },
+      { name: 'Xăng xe', icon: '⛽', color: 'bg-emerald-500' },
+      { name: 'Áo quần', icon: '👕', color: 'bg-pink-500' },
+      { name: 'Mua linh tinh', icon: '🛍️', color: 'bg-purple-500' }
+    ];
+
+    const STORAGE_KEY = 'personal_living_expenses_v1';
+    const BUDGET_KEY = 'personal_living_budgets_v1';
+
+    let expenses = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let budgets = JSON.parse(localStorage.getItem(BUDGET_KEY) || '{}');
+
+    // Khởi tạo ngày & tháng hiện tại
+    const todayObj = new Date();
+    const yyyy = todayObj.getFullYear();
+    const mm = String(todayObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(todayObj.getDate()).padStart(2, '0');
+    const currentMonthStr = `${yyyy}-${mm}`;
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    const monthPicker = document.getElementById('monthPicker');
+    monthPicker.value = currentMonthStr;
+    document.getElementById('date').value = todayStr;
+
+    monthPicker.addEventListener('change', () => {
+      // Cập nhật ngày mặc định theo tháng đang chọn
+      if (monthPicker.value === currentMonthStr) {
+        document.getElementById('date').value = todayStr;
+      } else {
+        document.getElementById('date').value = `${monthPicker.value}-01`;
+      }
+      renderAll();
+    });
+
+    function formatVND(num) {
+      return Number(num || 0).toLocaleString('vi-VN') + 'đ';
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+      localStorage.setItem(BUDGET_KEY, JSON.stringify(budgets));
+    }
+
+    function quickAmount(val) {
+      const input = document.getElementById('amount');
+      input.value = (Number(input.value) || 0) + val;
+      input.focus();
+    }
+
+    function addExpense(e) {
+      e.preventDefault();
+      const category = document.getElementById('category').value;
+      const amount = Number(document.getElementById('amount').value);
+      const note = document.getElementById('note').value.trim();
+      const date = document.getElementById('date').value;
+
+      if (!amount || amount <= 0) return;
+
+      expenses.unshift({
+        id: Date.now().toString(),
+        category,
+        amount,
+        note,
+        date
+      });
+
+      saveData();
+      document.getElementById('amount').value = '';
+      document.getElementById('note').value = '';
+      
+      // Chuyển bộ lọc tháng sang tháng của khoản vừa nhập nếu khác
+      const itemMonth = date.slice(0, 7);
+      if (monthPicker.value !== itemMonth) {
+        monthPicker.value = itemMonth;
+      }
+      renderAll();
+    }
+
+    function deleteExpense(id) {
+      if (!confirm('Xóa khoản chi này?')) return;
+      expenses = expenses.filter(item => item.id !== id);
+      saveData();
+      renderAll();
+    }
+
+    // Nhập nhanh hóa đơn cố định đầu tháng
+    function addRecurringBills() {
+      const m = monthPicker.value;
+      const rent = prompt('Nhập Tiền trọ tháng này (bỏ trống nếu chưa đóng):', '1500000');
+      const elec = prompt('Nhập Tiền điện tháng này (bỏ trống nếu chưa có):', '');
+      const water = prompt('Nhập Tiền nước sinh hoạt tháng này (bỏ trống nếu chưa có):', '');
+
+      const billDate = (m === currentMonthStr) ? todayStr : `${m}-05`;
+      let added = 0;
+
+      if (rent && Number(rent) > 0) {
+        expenses.unshift({ id: Date.now() + '_1', category: 'Tiền trọ', amount: Number(rent), note: 'Tiền phòng tháng ' + m, date: billDate });
+        added++;
+      }
+      if (elec && Number(elec) > 0) {
+        expenses.unshift({ id: Date.now() + '_2', category: 'Tiền điện', amount: Number(elec), note: 'Hóa đơn điện tháng ' + m, date: billDate });
+        added++;
+      }
+      if (water && Number(water) > 0) {
+        expenses.unshift({ id: Date.now() + '_3', category: 'Nước sinh hoạt', amount: Number(water), note: 'Nước sinh hoạt tháng ' + m, date: billDate });
+        added++;
+      }
+
+      if (added > 0) {
+        saveData();
+        renderAll();
+      }
+    }
+
+    // Modal Ngân sách
+    function openBudgetModal() {
+      const m = monthPicker.value;
+      document.getElementById('modalMonthLabel').textContent = m;
+      document.getElementById('budgetInput').value = budgets[m] || '';
+      const modal = document.getElementById('budgetModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.getElementById('budgetInput').focus();
+    }
+
+    function closeBudgetModal() {
+      const modal = document.getElementById('budgetModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveBudget() {
+      const m = monthPicker.value;
+      const val = Number(document.getElementById('budgetInput').value);
+      budgets[m] = val > 0 ? val : 0;
+      saveData();
+      closeBudgetModal();
+      renderAll();
+    }
+
+    function renderAll() {
+      const selectedMonth = monthPicker.value;
+      const filterCat = document.getElementById('filterCategory').value;
+
+      const monthExpenses = expenses.filter(e => e.date.startsWith(selectedMonth));
+      const totalSpent = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+      const budget = budgets[selectedMonth] || 0;
+      const remaining = budget - totalSpent;
+
+      const todaySpent = expenses
+        .filter(e => e.date === todayStr)
+        .reduce((sum, e) => sum + e.amount, 0);
+
+      // Cập nhật 4 thẻ thống kê
+      document.getElementById('statBudget').textContent = budget > 0 ? formatVND(budget) : 'Chưa đặt';
+      document.getElementById('statSpent').textContent = formatVND(totalSpent);
+      document.getElementById('statToday').textContent = formatVND(todaySpent);
+      document.getElementById('statCount').textContent = `${monthExpenses.length} khoản chi trong tháng`;
+
+      if (budget > 0) {
+        const pct = Math.round((totalSpent / budget) * 100);
+        document.getElementById('statPercent').textContent = `Đã dùng ${pct}% ngân sách`;
+        const remEl = document.getElementById('statRemaining');
+        remEl.textContent = formatVND(remaining);
+        remEl.className = `text-lg sm:text-xl font-bold mt-1 ${remaining < 0 ? 'text-rose-600' : 'text-emerald-600'}`;
+
+        // Tính bình quân ngày còn lại trong tháng
+        const [y, m] = selectedMonth.split('-').map(Number);
+        const daysInMonth = new Date(y, m, 0).getDate();
+        const currentDay = (selectedMonth === currentMonthStr) ? todayObj.getDate() : 1;
+        const daysLeft = Math.max(1, daysInMonth - currentDay + 1);
+        const perDay = remaining > 0 ? Math.floor(remaining / daysLeft) : 0;
+        document.getElementById('statDailyAllow').textContent = remaining > 0
+          ? `~${formatVND(perDay)} / ngày (${daysLeft} ngày cuối)`
+          : 'Đã vượt hạn mức tháng!';
+      } else {
+        document.getElementById('statPercent').textContent = 'Chưa đặt hạn mức';
+        document.getElementById('statRemaining').textContent = '—';
+        document.getElementById('statRemaining').className = 'text-lg sm:text-xl font-bold text-slate-400 mt-1';
+        document.getElementById('statDailyAllow').textContent = 'Bấm "Đặt ngân sách" để tính';
+      }
+
+      // Render phân bổ theo danh mục
+      const breakdownEl = document.getElementById('categoryBreakdown');
+      breakdownEl.innerHTML = CATEGORIES.map(cat => {
+        const catSum = monthExpenses
+          .filter(e => e.category === cat.name)
+          .reduce((s, e) => s + e.amount, 0);
+        const pct = totalSpent > 0 ? Math.round((catSum / totalSpent) * 100) : 0;
+
+        return `
+          <div>
+            <div class="flex justify-between text-xs sm:text-sm mb-1">
+              <span class="font-medium text-slate-700">${cat.icon} ${cat.name}</span>
+              <span class="font-semibold text-slate-900">${formatVND(catSum)} <span class="text-xs font-normal text-slate-400">(${pct}%)</span></span>
+            </div>
+            <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div class="${cat.color} h-2 rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Render danh sách chi tiết
+      const filteredList = monthExpenses
+        .filter(e => filterCat === 'ALL' || e.category === filterCat)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+      const listEl = document.getElementById('expenseList');
+      if (filteredList.length === 0) {
+        listEl.innerHTML = `
+          <div class="text-center py-10 text-slate-400 text-sm">
+            Chưa có khoản chi nào trong mục này.<br/>Hãy nhập khoản chi đầu tiên ở phía trên!
+          </div>
+        `;
+      } else {
+        listEl.innerHTML = filteredList.map(item => {
+          const catObj = CATEGORIES.find(c => c.name === item.category) || { icon: '💸' };
+          const dateFormatted = item.date.split('-').reverse().join('/');
+          return `
+            <div class="py-2.5 flex items-center justify-between gap-3 hover:bg-slate-50 px-2 rounded-xl transition">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-base shrink-0">
+                  ${catObj.icon}
+                </div>
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-slate-800 truncate">
+                    ${item.category} ${item.note ? `<span class="font-normal text-slate-500">- ${escapeHTML(item.note)}</span>` : ''}
+                  </p>
+                  <p class="text-xs text-slate-400">${dateFormatted}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="text-sm font-bold text-rose-600">-${formatVND(item.amount)}</span>
+                <button onclick="deleteExpense('${item.id}')" title="Xóa" class="text-slate-300 hover:text-rose-500 text-xs p-1">✕</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      }[tag]));
+    }
+
+    // Sao lưu JSON
+    function exportJSON() {
+      const dataStr = JSON.stringify({ expenses, budgets }, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chi-tieu-sinh-hoat-${monthPicker.value}.json`;
+      a.click();
+    }
+
+    // Khôi phục JSON
+    function importJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (Array.isArray(parsed.expenses)) {
+            expenses = parsed.expenses;
+            budgets = parsed.budgets || {};
+            saveData();
+            renderAll();
+            alert('Khôi phục dữ liệu thành công!');
+          } else {
+            alert('File sao lưu không hợp lệ.');
+          }
+        } catch {
+          alert('Lỗi đọc file JSON.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Xuất Excel CSV
+    function exportCSV() {
+      const selectedMonth = monthPicker.value;
+      const monthExpenses = expenses.filter(e => e.date.startsWith(selectedMonth));
+      if (monthExpenses.length === 0) {
+        alert('Tháng này chưa có dữ liệu để xuất!');
+        return;
+      }
+      let csv = '\uFEFFNgày,Danh mục,Số tiền (VNĐ),Ghi chú\n';
+      monthExpenses.forEach(e => {
+        const cleanNote = (e.note || '').replace(/"/g, '""');
+        csv += `${e.date},"${e.category}",${e.amount},"${cleanNote}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chi-tieu-${selectedMonth}.csv`;
+      a.click();
+    }
+
+    renderAll();
+  </script>
+</body>
+</html>
